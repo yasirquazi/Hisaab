@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MonthlySummaryCard: View {
     let totalSpent: Double
-    let familyTransferTotal: Double
     let budget: Double?
 
     private var progress: Double? {
@@ -53,24 +52,6 @@ struct MonthlySummaryCard: View {
                     Text("\(Int(progress * 100))% of budget used")
                         .font(.caption)
                         .foregroundStyle(progress > 0.9 ? .red : .secondary)
-                }
-            }
-
-            if familyTransferTotal > 0 {
-                Divider()
-
-                HStack {
-                    Label("Sent home", systemImage: "house.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    Text(familyTransferTotal, format: .currency(code: "INR").presentation(.narrow))
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                        .contentTransition(.numericText())
                 }
             }
         }

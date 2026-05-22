@@ -7,9 +7,8 @@ struct HomeView: View {
     @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
 
     @State private var showAddExpense = false
+    @State private var showVoiceCapture = false
     @State private var showSettings = false
-
-    // MARK: - Computed properties
 
     private var thisMonthExpenses: [Expense] {
         let calendar = Calendar.current
@@ -22,63 +21,65 @@ struct HomeView: View {
         thisMonthExpenses.reduce(0) { $0 + $1.amount }
     }
 
-    private var familyTransferThisMonth: Double {
-        thisMonthExpenses
-            .filter { $0.category == "Family Transfer" }
-            .reduce(0) { $0 + $1.amount }
-    }
-
-    // MARK: - Body
-
     var body: some View {
-        NavigationStack {
+        ZStack {
+            Color(.systemGroupedBackground).ignoresSafeArea()
+
             ScrollView {
                 VStack(spacing: 16) {
-                    MonthlySummaryCard(
-                        totalSpent: totalThisMonth,
-                        familyTransferTotal: familyTransferThisMonth,
-                        budget: nil
-                    )
+                    // Inline settings button — no large nav title
+                    HStack {
+                        Spacer()
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                                .font(.body)
+                                .frame(width: 36, height: 36)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                    }
+                    .padding(.top, 8)
+
+                    MonthlySummaryCard(totalSpent: totalThisMonth, budget: nil)
 
                     CategoryBreakdownChart(expenses: thisMonthExpenses)
 
                     RecentTransactionsList(expenses: Array(expenses.prefix(10)))
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 140)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Hisaab")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                addButton
-            }
-            .sheet(isPresented: $showAddExpense) {
-                AddExpenseView()
-            }
-            .sheet(isPresented: $showSettings) {
-                CategoryManagementView()
-            }
+            .overlay(alignment: .bottomTrailing) { addButton }
+            .overlay(alignment: .bottom) { micButton }
         }
+        .sheet(isPresented: $showAddExpense) { AddExpenseView() }
+        .sheet(isPresented: $showVoiceCapture) { VoiceCaptureView() }
+        .sheet(isPresented: $showSettings) { CategoryManagementView() }
         .onAppear(perform: seedCategoriesIfNeeded)
     }
 
-    // MARK: - Add Button (Emil: scale on press, spring out)
+    // MARK: - Floating buttons
+
+    private var micButton: some View {
+        Button { showVoiceCapture = true } label: {
+            Image(systemName: "mic.fill")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color(.label))
+                .clipShape(Circle())
+                .shadow(color: Color.black.opacity(0.2), radius: 12, y: 4)
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .padding(.bottom, 100)
+    }
 
     private var addButton: some View {
-        Button {
-            showAddExpense = true
-        } label: {
+        Button { showAddExpense = true } label: {
             Image(systemName: "plus")
                 .font(.title2)
                 .fontWeight(.semibold)
@@ -90,7 +91,7 @@ struct HomeView: View {
         }
         .buttonStyle(PressScaleButtonStyle())
         .padding(.trailing, 20)
-        .padding(.bottom, 32)
+        .padding(.bottom, 100)
     }
 
     // MARK: - Category seeding
@@ -103,7 +104,7 @@ struct HomeView: View {
     }
 }
 
-// Applies Emil's scale(0.97) on press — gives instant, physical feedback
+// Emil's scale(0.97) on press — shared across the module
 struct PressScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

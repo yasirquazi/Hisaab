@@ -5,6 +5,11 @@ options:
     iOS: "17.0"
   developmentLanguage: en
 
+packages:
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "7.0.0"
+
 targets:
   Hisaab:
     type: application
@@ -12,6 +17,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Hisaab
+    dependencies:
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
     info:
       path: Hisaab/Resources/Info.plist
       properties:
@@ -22,6 +32,11 @@ targets:
         NSSpeechRecognitionUsageDescription: "Used to log expenses by voice."
         NSMicrophoneUsageDescription: "Used to capture your voice for expense logging."
         UIApplicationSupportsIndirectInputEvents: true
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.hisaab.gmailsync
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.28497511806-kn2vlms1bg8dr2oo80barj3p9kljkvdf
     settings:
       base:
         PRODUCT_NAME: Hisaab

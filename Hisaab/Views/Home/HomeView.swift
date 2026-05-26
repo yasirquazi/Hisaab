@@ -9,6 +9,10 @@ struct HomeView: View {
     @State private var showAddExpense = false
     @State private var showVoiceCapture = false
     @State private var showSettings = false
+    @Environment(GmailService.self) private var gmailService
+    private var pendingReview: [Expense] {
+        expenses.filter { $0.source == .gmail && !$0.isReviewed }
+    }
 
     private var thisMonthExpenses: [Expense] {
         let calendar = Calendar.current
@@ -31,13 +35,21 @@ struct HomeView: View {
                     HStack {
                         Spacer()
                         Button { showSettings = true } label: {
-                            Image(systemName: "gearshape.fill")
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(.secondary)
-                                .font(.body)
-                                .frame(width: 36, height: 36)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(Circle())
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "gearshape.fill")
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(.secondary)
+                                    .font(.body)
+                                    .frame(width: 36, height: 36)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(Circle())
+                                if pendingReview.count > 0 {
+                                    Circle()
+                                        .fill(Color.orange)
+                                        .frame(width: 10, height: 10)
+                                        .offset(x: 2, y: -2)
+                                }
+                            }
                         }
                         .buttonStyle(PressScaleButtonStyle())
                     }
@@ -57,7 +69,7 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showAddExpense) { AddExpenseView() }
         .sheet(isPresented: $showVoiceCapture) { VoiceCaptureView() }
-        .sheet(isPresented: $showSettings) { CategoryManagementView() }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .onAppear(perform: seedCategoriesIfNeeded)
     }
 

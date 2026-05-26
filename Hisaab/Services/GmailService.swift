@@ -64,9 +64,10 @@ final class GmailService {
 
             let messageIds = try await fetchMessageIds(token: token)
             let existing = try fetchExistingGmailIds(modelContext: modelContext)
+            let merchantRules = try fetchMerchantRules(modelContext: modelContext)
 
             for messageId in messageIds where !existing.contains(messageId) {
-                if let expense = try await fetchAndParseMessage(id: messageId, token: token) {
+                if let expense = try await fetchAndParseMessage(id: messageId, token: token, merchantRules: merchantRules) {
                     modelContext.insert(expense)
                 }
             }
@@ -93,7 +94,7 @@ final class GmailService {
         return response.messages?.map(\.id) ?? []
     }
 
-    private func fetchAndParseMessage(id: String, token: String) async throws -> Expense? {
+    private func fetchAndParseMessage(id: String, token: String, merchantRules: [String: String]) async throws -> Expense? {
         let urlString = "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=metadata&metadataHeaders=Subject&metadataHeaders=Date"
         guard let url = URL(string: urlString) else { return nil }
 
@@ -104,23 +105,44 @@ final class GmailService {
         let msg = try JSONDecoder().decode(GmailMessage.self, from: data)
 
         let subject = msg.payload.headers.first { $0.name == "Subject" }?.value ?? ""
-        let dateStr = msg.payload.headers.first { $0.name == "Date" }?.value ?? ""
-        let date = parseEmailDate(dateStr) ?? .now
         let snippet = msg.snippet ?? ""
+
+        // Use internalDate (Unix ms) — always accurate, never needs header parsing
+        let date: Date
+        if let ms = msg.internalDate.flatMap(Double.init) {
+            date = Date(timeIntervalSince1970: ms / 1000)
+        } else {
+            let dateStr = msg.payload.headers.first { $0.name == "Date" }?.value ?? ""
+            date = parseEmailDate(dateStr) ?? .now
+        }
 
         guard let parsed = EmailParser.parse(subject: subject, body: snippet, date: date) else {
             return nil
         }
 
+        // Apply learned merchant→category rule if present
+        let category: String
+        if let merchant = parsed.merchant,
+           let learned = merchantRules[merchant.lowercased()] {
+            category = learned
+        } else {
+            category = parsed.category
+        }
+
         return Expense(
             amount: parsed.amount,
-            category: parsed.category,
+            category: category,
             note: parsed.note,
             date: parsed.date,
             source: .gmail,
             gmailMessageId: id,
             merchant: parsed.merchant
         )
+    }
+
+    private func fetchMerchantRules(modelContext: ModelContext) throws -> [String: String] {
+        let rules = try modelContext.fetch(FetchDescriptor<MerchantCategoryRule>())
+        return Dictionary(rules.map { ($0.merchant, $0.category) }, uniquingKeysWith: { _, last in last })
     }
 
     private func fetchExistingGmailIds(modelContext: ModelContext) throws -> Set<String> {
@@ -167,6 +189,7 @@ private struct MessageListResponse: Decodable {
 
 private struct GmailMessage: Decodable {
     let snippet: String?
+    let internalDate: String?   // Unix timestamp in ms, as string
     let payload: Payload
     struct Payload: Decodable {
         let headers: [Header]

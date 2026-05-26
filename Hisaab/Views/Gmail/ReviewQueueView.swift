@@ -110,6 +110,7 @@ private struct ReviewRow: View {
                     .clipShape(Capsule())
 
                 Button("Approve") {
+                    saveRule(merchant: expense.merchant, category: expense.category)
                     expense.isReviewed = true
                     try? modelContext.save()
                 }
@@ -145,6 +146,21 @@ private struct ReviewRow: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color(.tertiarySystemFill))
             .clipShape(Capsule())
+    }
+
+    private func saveRule(merchant: String?, category: String) {
+        guard let merchant, !merchant.isEmpty else { return }
+        let key = merchant.lowercased()
+        let descriptor = FetchDescriptor<MerchantCategoryRule>(
+            predicate: #Predicate { $0.merchant == key }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.category = category
+            existing.usageCount += 1
+            existing.lastUsed = .now
+        } else {
+            modelContext.insert(MerchantCategoryRule(merchant: key, category: category))
+        }
     }
 }
 
@@ -188,6 +204,7 @@ private struct EditImportedExpenseView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         if let value = Double(amountText), value > 0 { expense.amount = value }
+                        saveRule(merchant: expense.merchant, category: expense.category)
                         expense.isReviewed = true
                         try? modelContext.save()
                         dismiss()
@@ -196,6 +213,21 @@ private struct EditImportedExpenseView: View {
                 }
             }
             .onAppear { amountText = String(expense.amount) }
+        }
+    }
+
+    private func saveRule(merchant: String?, category: String) {
+        guard let merchant, !merchant.isEmpty else { return }
+        let key = merchant.lowercased()
+        let descriptor = FetchDescriptor<MerchantCategoryRule>(
+            predicate: #Predicate { $0.merchant == key }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.category = category
+            existing.usageCount += 1
+            existing.lastUsed = .now
+        } else {
+            modelContext.insert(MerchantCategoryRule(merchant: key, category: category))
         }
     }
 }

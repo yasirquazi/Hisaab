@@ -26,7 +26,7 @@ struct HisaabApp: App {
                 GIDSignIn.sharedInstance.handle(url)
             }
         }
-        .modelContainer(for: [Expense.self, ExpenseCategory.self, FinancialProfile.self, GmailSyncState.self])
+        .modelContainer(for: [Expense.self, ExpenseCategory.self, FinancialProfile.self, GmailSyncState.self, MerchantCategoryRule.self])
     }
 
     private func configureGoogleSignIn() {
@@ -49,7 +49,7 @@ struct HisaabApp: App {
     private func handleBackgroundSync(task: BGAppRefreshTask) {
         scheduleNextBackgroundSync()
         Task {
-            let container = try? ModelContainer(for: Expense.self, ExpenseCategory.self, FinancialProfile.self, GmailSyncState.self)
+            let container = try? ModelContainer(for: Expense.self, ExpenseCategory.self, FinancialProfile.self, GmailSyncState.self, MerchantCategoryRule.self)
             if let context = container?.mainContext {
                 await gmailService.syncEmails(modelContext: context)
             }

@@ -14,17 +14,12 @@ struct HisaabApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView {
-                HomeView()
-                    .tabItem { Label("Home", systemImage: "house.fill") }
-                SpendingsView()
-                    .tabItem { Label("Spendings", systemImage: "chart.bar.fill") }
-            }
-            .environment(gmailService)
-            .task { await gmailService.restorePreviousSignIn() }
-            .onOpenURL { url in
-                GIDSignIn.sharedInstance.handle(url)
-            }
+            MainTabView()
+                .environment(gmailService)
+                .task { await gmailService.restorePreviousSignIn() }
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
         }
         .modelContainer(for: [Expense.self, ExpenseCategory.self, FinancialProfile.self, GmailSyncState.self, MerchantCategoryRule.self])
     }

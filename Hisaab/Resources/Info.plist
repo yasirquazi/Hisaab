@@ -37,6 +37,10 @@
 	<string>Used to capture your voice for expense logging.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Used to log expenses by voice.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ChivoMono-Variable.ttf</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

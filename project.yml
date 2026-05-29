@@ -32,6 +32,8 @@ targets:
         NSSpeechRecognitionUsageDescription: "Used to log expenses by voice."
         NSMicrophoneUsageDescription: "Used to capture your voice for expense logging."
         UIApplicationSupportsIndirectInputEvents: true
+        UIAppFonts:
+          - ChivoMono-Variable.ttf
         BGTaskSchedulerPermittedIdentifiers:
           - com.hisaab.gmailsync
         CFBundleURLTypes:

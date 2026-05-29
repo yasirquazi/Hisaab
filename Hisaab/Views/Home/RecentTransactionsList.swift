@@ -7,50 +7,32 @@ struct RecentTransactionsList: View {
         let calendar = Calendar.current
         var buckets: [String: [Expense]] = [:]
         var order: [String] = []
-
-        for expense in expenses.prefix(10) {
+        for expense in expenses {
             let label = dayLabel(for: expense.date, calendar: calendar)
-            if buckets[label] == nil {
-                order.append(label)
-            }
+            if buckets[label] == nil { order.append(label) }
             buckets[label, default: []].append(expense)
         }
-
         return order.map { (label: $0, items: buckets[$0]!) }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Recent")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 24) {
+            ForEach(grouped, id: \.label) { group in
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(group.label)
+                        .font(HisaabTheme.mono(12, weight: .medium))
+                        .foregroundStyle(Color.hSecondary)
+                        .tracking(0.8)
+                        .textCase(.uppercase)
 
-            if expenses.isEmpty {
-                Text("No expenses yet. Tap + to add one.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 24)
-            } else {
-                ForEach(Array(grouped.enumerated()), id: \.element.label) { index, group in
-                    Section {
+                    VStack(spacing: 16) {
                         ForEach(group.items) { expense in
                             ExpenseRow(expense: expense)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
-                    } header: {
-                        Text(group.label)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                            .padding(.top, index == 0 ? 0 : 8)
                     }
                 }
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
     private func dayLabel(for date: Date, calendar: Calendar) -> String {

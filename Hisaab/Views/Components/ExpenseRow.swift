@@ -4,48 +4,45 @@ struct ExpenseRow: View {
     let expense: Expense
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Text(categoryEmoji)
-                .font(.title2)
-                .frame(width: 42, height: 42)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(Circle())
+        HStack(spacing: 16) {
+            categoryIcon
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(expense.category)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                    .font(HisaabTheme.mono(14, weight: .medium))
+                    .foregroundStyle(Color.hPrimary)
 
                 if let note = expense.note, !note.isEmpty {
                     Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(12, weight: .light))
+                        .foregroundStyle(Color.hSecondary)
+                        .lineLimit(1)
+                } else if let merchant = expense.merchant, !merchant.isEmpty {
+                    Text(merchant)
+                        .font(HisaabTheme.mono(12, weight: .light))
+                        .foregroundStyle(Color.hSecondary)
                         .lineLimit(1)
                 }
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(expense.amount, format: .currency(code: "INR").presentation(.narrow))
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-
-                if expense.source == .gmail {
-                    Label("Auto", systemImage: "envelope.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(expense.amount, format: .currency(code: "INR").presentation(.narrow))
+                .font(HisaabTheme.mono(16, weight: .bold))
+                .foregroundStyle(Color.hPrimary)
         }
-        .padding(.vertical, 4)
     }
 
-    // Resolve the emoji from the shared category store via name match
-    // Falls back to a default if no Category object is found
-    private var categoryEmoji: String {
-        ExpenseCategory.defaults.first { $0.name == expense.category }?.emoji ?? "💸"
+    private var categoryIcon: some View {
+        let color = CategoryBreakdownChart.color(for: expense.category)
+        let icon = HisaabTheme.categoryIcon(for: expense.category)
+        return ZStack {
+            color.opacity(0.1)
+                .frame(width: 40, height: 40)
+            Image(icon)
+                .renderingMode(.template)
+                .foregroundStyle(color)
+                .frame(width: 20, height: 20)
+        }
     }
 }

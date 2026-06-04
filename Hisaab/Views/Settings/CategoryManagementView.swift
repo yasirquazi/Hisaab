@@ -9,91 +9,129 @@ struct CategoryManagementView: View {
     @State private var showAddCategory = false
     @State private var newName = ""
     @State private var newEmoji = ""
-    @State private var editingCategory: ExpenseCategory?
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(categories) { cat in
-                    HStack(spacing: 14) {
-                        Text(cat.emoji)
-                            .font(.title3)
-                            .frame(width: 36)
-
-                        Text(cat.name)
-                            .font(.body)
-
-                        Spacer()
-
-                        if let budget = cat.monthlyBudget {
-                            Text(budget, format: .currency(code: "INR").presentation(.narrow))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            modelContext.delete(cat)
+        ZStack(alignment: .top) {
+            Color.hBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HisaabHeader(
+                    title: "Categories",
+                    leftAction: AnyView(
+                        Button {
+                            showAddCategory = true
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Text("+ Add")
+                                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                                .foregroundStyle(Color.hPrimary)
+                        }
+                    ),
+                    rightAction: AnyView(
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.hPrimary)
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                    )
+                )
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(categories) { cat in
+                            categoryRow(cat)
                         }
                     }
-                }
-
-                Section {
-                    Button {
-                        showAddCategory = true
-                    } label: {
-                        Label("Add Category", systemImage: "plus.circle.fill")
-                            .foregroundStyle(Color.accentColor)
-                    }
+                    .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                    .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("Categories")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                }
-            }
-            .sheet(isPresented: $showAddCategory) {
-                addCategorySheet
-            }
+        }
+        .background(ModalSafeAreaFixer())
+        .sheet(isPresented: $showAddCategory) {
+            addCategorySheet
         }
     }
 
-    private var addCategorySheet: some View {
-        NavigationStack {
-            Form {
-                Section("Emoji") {
-                    TextField("e.g. 🎮", text: $newEmoji)
-                        .font(.title)
-                }
-                Section("Name") {
-                    TextField("e.g. Gaming", text: $newName)
-                }
+    private func categoryRow(_ cat: ExpenseCategory) -> some View {
+        HStack(spacing: 14) {
+            Text(cat.emoji)
+                .font(.title3)
+                .frame(width: 36)
+
+            Text(cat.name)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hPrimary)
+
+            Spacer()
+
+            if let budget = cat.monthlyBudget {
+                Text(budget, format: .currency(code: "INR").presentation(.narrow))
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                    .foregroundStyle(Color.hSecondary)
             }
-            .navigationTitle("New Category")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+
+            Button(role: .destructive) {
+                modelContext.delete(cat)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.hSecondary)
+            }
+            .buttonStyle(PressScaleButtonStyle())
+        }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
+    }
+
+    private var addCategorySheet: some View {
+        VStack(spacing: 0) {
+            HisaabHeader(
+                title: "New Category",
+                leftAction: AnyView(
                     Button("Cancel") {
                         showAddCategory = false
                         newName = ""
                         newEmoji = ""
                     }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        addCategory()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(newName.isEmpty || newEmoji.isEmpty)
-                }
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                    .foregroundStyle(Color.hSecondary)
+                ),
+                rightAction: AnyView(
+                    Button("Add") { addCategory() }
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .semibold))
+                        .foregroundStyle(newName.isEmpty || newEmoji.isEmpty ? Color.hBorder : Color.hPrimary)
+                        .disabled(newName.isEmpty || newEmoji.isEmpty)
+                )
+            )
+            .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+            VStack(alignment: .leading, spacing: 0) {
+                fieldRow(label: "Emoji", placeholder: "e.g. 🎮", text: $newEmoji)
+                fieldRow(label: "Name", placeholder: "e.g. Gaming", text: $newName)
             }
+            .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+            Spacer()
         }
+        .background(Color.hBackground)
         .presentationDetents([.medium])
+        .presentationBackground(Color.hBackground)
+    }
+
+    private func fieldRow(label: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label.uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
+            TextField(placeholder, text: text)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.title))
+                .foregroundStyle(Color.hPrimary)
+        }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     private func addCategory() {

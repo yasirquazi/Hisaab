@@ -56,7 +56,6 @@ final class SpeechRecognitionManager: @unchecked Sendable {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let request = recognitionRequest else { isListening = false; return }
         request.shouldReportPartialResults = true
-        // Honour the spec's privacy requirement when the device supports it
         request.requiresOnDeviceRecognition = speechRecognizer?.supportsOnDeviceRecognition == true
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
@@ -102,12 +101,9 @@ struct VoiceCaptureView: View {
     @State private var manager = SpeechRecognitionManager()
     @State private var phase: CapturePhase = .listening
 
-    // Confirmation fields — set from VoiceParser output, editable by user
     @State private var amountText = ""
     @State private var confirmedCategory = ""
     @State private var confirmedNote = ""
-
-    // Controls the pulse ring animation
     @State private var pulsing = false
 
     var body: some View {
@@ -119,12 +115,12 @@ struct VoiceCaptureView: View {
             case .confirming: confirmationView
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.hBackground)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
+        .presentationBackground(Color.hBackground)
         .task { await startListening() }
         .onChange(of: manager.isListening) { _, nowListening in
-            // Natural end of recognition (timeout or final result) triggers confirmation
             guard !nowListening, phase == .listening else { return }
             parseAndConfirm()
         }
@@ -134,9 +130,9 @@ struct VoiceCaptureView: View {
     // MARK: - Drag handle
 
     private var dragHandle: some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Color(.tertiaryLabel))
-            .frame(width: 40, height: 5)
+        Rectangle()
+            .fill(Color.hBorder)
+            .frame(width: 40, height: 4)
             .padding(.top, 12)
             .padding(.bottom, 8)
     }
@@ -144,53 +140,52 @@ struct VoiceCaptureView: View {
     // MARK: - Listening phase
 
     private var listeningView: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: HisaabTheme.Layout.sectionGap) {
             Spacer()
 
-            // Live transcript / status text
             Group {
                 if let error = manager.authorizationError {
                     VStack(spacing: 12) {
                         Text(error)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hSecondary)
                             .multilineTextAlignment(.center)
                         Button("Open Settings") {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 openURL(url)
                             }
                         }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .medium))
+                        .foregroundStyle(Color.hPrimary)
                     }
                 } else if manager.transcript.isEmpty {
                     Text("Listening...")
-                        .font(.body)
-                        .foregroundStyle(.tertiary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                        .foregroundStyle(Color.hSecondary)
                 } else {
                     Text(manager.transcript)
-                        .font(.title3)
-                        .fontWeight(.medium)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.title, weight: .medium))
+                        .foregroundStyle(Color.hPrimary)
                         .multilineTextAlignment(.center)
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 80)
-            .padding(.horizontal, 28)
+            .padding(.horizontal, HisaabTheme.Layout.pagePadding)
             .animation(.easeInOut(duration: 0.15), value: manager.transcript)
 
-            // Mic button with breathing pulse rings
+            // Mic button with pulse rings — circle kept intentionally for mic affordance
             ZStack {
                 if manager.isListening {
                     Circle()
-                        .fill(Color.accentColor.opacity(0.12))
+                        .fill(Color.hPrimary.opacity(0.08))
                         .frame(width: 108, height: 108)
                         .scaleEffect(pulsing ? 1.3 : 1.0)
                         .opacity(pulsing ? 0.0 : 1.0)
                         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
 
                     Circle()
-                        .fill(Color.accentColor.opacity(0.07))
+                        .fill(Color.hPrimary.opacity(0.05))
                         .frame(width: 138, height: 138)
                         .scaleEffect(pulsing ? 1.25 : 1.0)
                         .opacity(pulsing ? 0.0 : 1.0)
@@ -202,12 +197,12 @@ struct VoiceCaptureView: View {
                 Button { manager.stopListening() } label: {
                     Image(systemName: manager.isListening ? "stop.fill" : "mic.fill")
                         .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.hBackground)
                         .frame(width: 72, height: 72)
-                        .background(manager.isListening ? Color.red : Color.accentColor)
+                        .background(manager.isListening ? Color.red : Color.hPrimary)
                         .clipShape(Circle())
                         .shadow(
-                            color: (manager.isListening ? Color.red : Color.accentColor).opacity(0.4),
+                            color: (manager.isListening ? Color.red : Color.hPrimary).opacity(0.3),
                             radius: 14, y: 4
                         )
                 }
@@ -216,8 +211,8 @@ struct VoiceCaptureView: View {
             .frame(height: 150)
 
             Text(manager.isListening ? "Tap to stop" : " ")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                .foregroundStyle(Color.hSecondary)
                 .animation(.easeInOut(duration: 0.2), value: manager.isListening)
 
             Spacer()
@@ -229,113 +224,83 @@ struct VoiceCaptureView: View {
 
     private var confirmationView: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                amountCard
-                categoryCard
-                noteCard
-
-                Button(action: save) {
-                    Text("Save Expense")
-                        .font(.body)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(canSave ? Color.accentColor : Color(.systemFill))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(PressScaleButtonStyle())
-                .disabled(!canSave)
+            VStack(spacing: HisaabTheme.Layout.itemGap) {
+                amountSection
+                categorySection
+                noteSection
+                HisaabPrimaryButton(label: "Save Expense", disabled: !canSave) { save() }
+                    .padding(.top, 8)
 
                 Button { Task { await startListening() } } label: {
                     Text("Try again")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                        .foregroundStyle(Color.hSecondary)
                 }
-                .padding(.top, 4)
             }
-            .padding(20)
-            .padding(.bottom, 16)
+            .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+            .padding(.bottom, 24)
         }
     }
 
-    private var amountCard: some View {
-        VStack(spacing: 6) {
-            Text("Amount")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private var amountSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Amount".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("₹")
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.display, weight: .semibold))
+                    .foregroundStyle(Color.hSecondary)
                 TextField("0", text: $amountText)
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.hero, weight: .bold))
+                    .foregroundStyle(Color.hPrimary)
                     .keyboardType(.decimalPad)
                     .minimumScaleFactor(0.5)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
-    private var categoryCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Category")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Category".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ForEach(categories) { cat in
-                        chipButton(cat)
+                        HisaabChip(
+                            label: "\(cat.emoji) \(cat.name)",
+                            isSelected: confirmedCategory == cat.name
+                        ) {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                confirmedCategory = cat.name
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 2)
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
-    private var noteCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Note")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+    private var noteSection: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Note".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
             TextField("Optional note", text: $confirmedNote)
-                .font(.body)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hPrimary)
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func chipButton(_ cat: ExpenseCategory) -> some View {
-        let selected = confirmedCategory == cat.name
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                confirmedCategory = cat.name
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Text(cat.emoji)
-                Text(cat.name)
-                    .font(.subheadline)
-                    .fontWeight(selected ? .semibold : .regular)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(selected ? Color.accentColor : Color(.tertiarySystemBackground))
-            .foregroundStyle(selected ? .white : .primary)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(PressScaleButtonStyle())
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     // MARK: - Logic

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RecentTransactionsList: View {
     let expenses: [Expense]
+    var onTap: ((Expense) -> Void)? = nil
 
     private var grouped: [(label: String, items: [Expense])] {
         let calendar = Calendar.current
@@ -27,7 +28,10 @@ struct RecentTransactionsList: View {
 
                     VStack(spacing: 16) {
                         ForEach(group.items) { expense in
-                            ExpenseRow(expense: expense)
+                            Button { onTap?(expense) } label: {
+                                ExpenseRow(expense: expense)
+                            }
+                            .buttonStyle(PressScaleButtonStyle())
                         }
                     }
                 }

@@ -17,7 +17,7 @@ struct MainTabView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             tabBar
         }
-        .sheet(isPresented: $showAddExpense) { AddExpenseView() }
+        .fullScreenCover(isPresented: $showAddExpense) { AddExpenseView() }
     }
 
     private var tabBar: some View {
@@ -27,7 +27,7 @@ struct MainTabView: View {
                 .frame(height: 1)
 
             HStack(spacing: 0) {
-                tabButton(tab: .home, icon: "ri-home-line", activeIcon: "ri-home-2-fill")
+                tabButton(tab: .home, icon: "ri-home-2-line", activeIcon: "ri-home-2-fill")
 
                 Button { showAddExpense = true } label: {
                     Image("ri-add-line")
@@ -41,7 +41,7 @@ struct MainTabView: View {
                 .buttonStyle(PressScaleButtonStyle())
                 .frame(maxWidth: .infinity, minHeight: 56)
 
-                tabButton(tab: .spendings, icon: "ri-bar-chart-2-line", activeIcon: "ri-bar-chart-2-line")
+                tabButton(tab: .spendings, icon: "ri-bar-chart-2-line", activeIcon: "ri-bar-chart-2-fill")
             }
             .frame(height: 56)
             .background(Color.hBackground)

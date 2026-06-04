@@ -14,22 +14,23 @@ struct MonthlySummaryCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(monthLabel)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(monthLabel.uppercased())
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                    .foregroundStyle(Color.hSecondary)
+                    .tracking(0.8)
 
                 Text(totalSpent, format: .currency(code: "INR").presentation(.narrow))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.hero, weight: .bold))
+                    .foregroundStyle(Color.hPrimary)
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: totalSpent)
 
                 if let budget {
                     Text("of \(budget, format: .currency(code: "INR").presentation(.narrow)) budget")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                        .foregroundStyle(Color.hSecondary)
                 }
             }
 
@@ -37,12 +38,11 @@ struct MonthlySummaryCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(.tertiarySystemFill))
+                            Rectangle()
+                                .fill(Color.hBorder)
                                 .frame(height: 6)
-
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(progress > 0.9 ? Color.red : Color.accentColor)
+                            Rectangle()
+                                .fill(progress > 0.9 ? Color.red : Color.hAccent)
                                 .frame(width: geo.size.width * progress, height: 6)
                                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: progress)
                         }
@@ -50,13 +50,12 @@ struct MonthlySummaryCard: View {
                     .frame(height: 6)
 
                     Text("\(Int(progress * 100))% of budget used")
-                        .font(.caption)
-                        .foregroundStyle(progress > 0.9 ? .red : .secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.caption))
+                        .foregroundStyle(progress > 0.9 ? .red : Color.hSecondary)
                 }
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(HisaabTheme.Layout.cardPadding)
+        .hOutline()
     }
 }

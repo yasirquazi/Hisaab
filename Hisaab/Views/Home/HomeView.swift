@@ -12,17 +12,12 @@ struct HomeView: View {
     @State private var showVoiceCapture = false
     @State private var showIncomeSheet = false
     @State private var showSavingsSheet = false
+    @State private var editingExpense: Expense? = nil
 
     private var profile: FinancialProfile? { profiles.first }
 
-    private var thisMonthExpenses: [Expense] {
-        expenses.filter {
-            Calendar.current.isDate($0.date, equalTo: .now, toGranularity: .month)
-        }
-    }
-
-    private var totalThisMonth: Double {
-        thisMonthExpenses.reduce(0) { $0 + $1.amount }
+    private var totalSpending: Double {
+        expenses.reduce(0) { $0 + $1.amount }
     }
 
     private var pendingReview: [Expense] {
@@ -47,6 +42,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showVoiceCapture) { VoiceCaptureView() }
         .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(item: $editingExpense) { expense in
+            AddExpenseView(editingExpense: expense)
+        }
         .sheet(isPresented: $showIncomeSheet) {
             MetricInputSheet(title: "Monthly Income", current: profile?.monthlyIncome ?? 0) { amount in
                 upsertProfile { $0.monthlyIncome = amount }
@@ -99,22 +97,27 @@ struct HomeView: View {
     private var metricsSection: some View {
         VStack(alignment: .center, spacing: 16) {
             VStack(spacing: 6) {
-                Text(totalThisMonth, format: .currency(code: "INR").presentation(.narrow))
-                    .font(HisaabTheme.mono(40, weight: .bold))
-                    .foregroundStyle(Color.hPrimary)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .contentTransition(.numericText())
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: totalThisMonth)
-
+                if expenses.isEmpty {
+                    Text("—")
+                        .font(HisaabTheme.mono(40, weight: .bold))
+                        .foregroundStyle(Color.hSecondary)
+                } else {
+                    Text(totalSpending, format: .currency(code: "INR").presentation(.narrow))
+                        .font(HisaabTheme.mono(40, weight: .bold))
+                        .foregroundStyle(Color.hPrimary)
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: totalSpending)
+                }
                 Text("Total Spending")
                     .font(HisaabTheme.mono(16, weight: .medium))
-                    .foregroundStyle(Color.hPrimary)
+                    .foregroundStyle(expenses.isEmpty ? Color.hSecondary : Color.hPrimary)
             }
             .frame(maxWidth: .infinity)
 
-            if !thisMonthExpenses.isEmpty {
-                HomeBreakdownBar(expenses: thisMonthExpenses)
+            if !expenses.isEmpty {
+                HomeBreakdownBar(expenses: expenses)
             }
 
             incomeAndSavings
@@ -174,20 +177,36 @@ struct HomeView: View {
 
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Recent Transactions")
-                .font(HisaabTheme.mono(16, weight: .medium))
-                .foregroundStyle(Color.hPrimary)
-
-            if expenses.isEmpty {
-                Text("No expenses yet. Tap + to add one.")
-                    .font(HisaabTheme.mono(14))
-                    .foregroundStyle(Color.hSecondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 32)
+            if !expenses.isEmpty {
+                Text("Recent Transactions")
+                    .font(HisaabTheme.mono(16, weight: .medium))
+                    .foregroundStyle(Color.hPrimary)
+                RecentTransactionsList(
+                    expenses: Array(expenses.prefix(15)),
+                    onTap: { editingExpense = $0 }
+                )
             } else {
-                RecentTransactionsList(expenses: Array(expenses.prefix(15)))
+                emptyState
             }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray")
+                .font(.system(size: 36))
+                .foregroundStyle(Color.hSecondary)
+                .symbolRenderingMode(.hierarchical)
+                .padding(.bottom, 4)
+            Text("No expenses yet")
+                .font(HisaabTheme.mono(16, weight: .medium))
+                .foregroundStyle(Color.hPrimary)
+            Text("Tap + to log your first expense")
+                .font(HisaabTheme.mono(12))
+                .foregroundStyle(Color.hSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
     }
 
     // MARK: - Mic FAB
@@ -230,10 +249,3 @@ struct HomeView: View {
     }
 }
 
-struct PressScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}

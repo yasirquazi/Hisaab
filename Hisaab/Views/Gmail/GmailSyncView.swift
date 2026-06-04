@@ -8,124 +8,123 @@ struct GmailSyncView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    iconHeader
+        ZStack(alignment: .top) {
+            Color.hBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HisaabHeader(
+                    title: "Gmail Import",
+                    rightAction: AnyView(
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.hPrimary)
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                    )
+                )
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
 
-                    if gmailService.isSignedIn {
-                        connectedCard
-                    } else {
-                        connectCard
-                    }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: HisaabTheme.Layout.sectionGap) {
+                        descriptionBlock
 
-                    if let error = gmailService.syncError {
-                        errorBanner(error)
+                        if gmailService.isSignedIn {
+                            connectedSection
+                        } else {
+                            connectSection
+                        }
+
+                        if let error = gmailService.syncError {
+                            errorBlock(error)
+                        }
                     }
-                }
-                .padding(20)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Gmail Import")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
+                    .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                    .padding(.bottom, 32)
                 }
             }
         }
+        .background(ModalSafeAreaFixer())
     }
 
-    private var iconHeader: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "envelope.badge.fill")
-                .font(.system(size: 48))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor)
-            Text("Auto-import bank transactions from your Gmail inbox — no email content is stored.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.top, 8)
+    // MARK: - Description
+
+    private var descriptionBlock: some View {
+        Text("Auto-import bank transactions from your Gmail inbox — no email content is stored or sent externally.")
+            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+            .foregroundStyle(Color.hSecondary)
     }
 
-    private var connectCard: some View {
-        VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Read-only access", systemImage: "lock.shield.fill")
-                    .font(.subheadline).fontWeight(.medium)
-                Label("Only transaction emails are scanned", systemImage: "envelope.open.fill")
-                    .font(.subheadline).fontWeight(.medium)
-                Label("No data sent to any server", systemImage: "xmark.icloud.fill")
-                    .font(.subheadline).fontWeight(.medium)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color(.tertiarySystemFill))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+    // MARK: - Connect section
 
-            Button {
+    private var connectSection: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            privacyRow(icon: "lock.shield.fill", text: "Read-only access")
+            privacyRow(icon: "envelope.open.fill", text: "Only transaction emails are scanned")
+            privacyRow(icon: "xmark.icloud.fill", text: "No data sent to any server")
+
+            HisaabPrimaryButton(label: "Connect Gmail") {
                 Task { await signIn() }
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "envelope.fill")
-                    Text("Connect Gmail")
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .buttonStyle(PressScaleButtonStyle())
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
-    private var connectedCard: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
+    private func privacyRow(icon: String, text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(Color.hPrimary)
+                .frame(width: 20, height: 20)
+            Text(text)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hPrimary)
+            Spacer()
+        }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
+    }
+
+    // MARK: - Connected section
+
+    private var connectedSection: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
                     .foregroundStyle(.green)
+                    .font(.title3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Gmail Connected")
-                        .font(.headline)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .medium))
+                        .foregroundStyle(Color.hPrimary)
                     if let last = gmailService.lastSyncDate {
                         Text("Last synced \(last.formatted(.relative(presentation: .named)))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                            .foregroundStyle(Color.hSecondary)
                     } else {
                         Text("Not yet synced")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                            .foregroundStyle(Color.hSecondary)
                     }
                 }
                 Spacer()
             }
+            .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+            .hBottomBorder()
 
             Button {
                 Task { await gmailService.syncEmails(modelContext: modelContext) }
             } label: {
                 HStack(spacing: 8) {
                     if gmailService.isSyncing {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
+                        ProgressView().tint(Color.hBackground)
+                            .scaleEffect(0.8)
                     }
                     Text(gmailService.isSyncing ? "Syncing…" : "Sync Now")
-                        .fontWeight(.semibold)
                 }
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .semibold))
+                .foregroundStyle(gmailService.isSyncing ? Color.hSecondary : Color.hBackground)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.vertical, HisaabTheme.Layout.buttonV)
+                .background(gmailService.isSyncing ? Color.hBorder : Color.hPrimary)
             }
             .buttonStyle(PressScaleButtonStyle())
             .disabled(gmailService.isSyncing)
@@ -134,32 +133,29 @@ struct GmailSyncView: View {
                 gmailService.signOut()
             } label: {
                 Text("Disconnect Gmail")
-                    .font(.subheadline)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.red.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.vertical, HisaabTheme.Layout.buttonV)
+                    .overlay(Rectangle().stroke(Color.red.opacity(0.4), lineWidth: HisaabTheme.Layout.borderWidth))
             }
             .buttonStyle(PressScaleButtonStyle())
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
-    private func errorBanner(_ message: String) -> some View {
+    // MARK: - Error
+
+    private func errorBlock(_ message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
             Text(message)
-                .font(.caption)
-                .foregroundStyle(.primary)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                .foregroundStyle(Color.hPrimary)
             Spacer()
         }
-        .padding(14)
-        .background(Color.red.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(HisaabTheme.Layout.cardPadding)
+        .overlay(Rectangle().stroke(Color.red.opacity(0.4), lineWidth: HisaabTheme.Layout.borderWidth))
     }
 
     private func signIn() async {

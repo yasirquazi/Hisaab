@@ -78,10 +78,9 @@ struct SpendingsView: View {
     private var totalSpent: Double { filtered.reduce(0) { $0 + $1.amount } }
 
     private var hasActiveFilters: Bool {
-        selectedCategory != nil || selectedSource != nil || period != .thisMonth
+        selectedCategory != nil || selectedSource != nil || period != .thisMonth || sortOrder != .newest
     }
 
-    // Day-grouped (used when sorting by date)
     private var dayGroups: [(label: String, items: [Expense])] {
         let calendar = Calendar.current
         var buckets: [String: [Expense]] = [:]
@@ -97,19 +96,20 @@ struct SpendingsView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    chartCard
-                    filterRow
-                    expenseList
+        Color.hBackground.ignoresSafeArea()
+            .overlay(
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        chartSection
+                            .padding(.bottom, HisaabTheme.Layout.sectionGap)
+                        if hasActiveFilters { filterChipsRow.padding(.bottom, HisaabTheme.Layout.itemGap) }
+                        expenseList
+                    }
+                    .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                    .padding(.bottom, 32)
                 }
-                .padding(16)
-                .padding(.bottom, 24)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Spendings")
-            .navigationBarTitleDisplayMode(.large)
+            )
             .sheet(isPresented: $showFilter) {
                 SpendingsFilterSheet(
                     sortOrder: $sortOrder,
@@ -119,27 +119,55 @@ struct SpendingsView: View {
                     categories: categories
                 )
             }
-        }
     }
 
-    // MARK: - Chart card
+    // MARK: - Header
 
-    private var chartCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private var header: some View {
+        HisaabHeader(
+            title: "Spending Overview",
+            rightAction: AnyView(
+                Button { showFilter = true } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Text("Filter")
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hPrimary)
+                            .padding(.horizontal, HisaabTheme.Layout.chipH)
+                            .padding(.vertical, HisaabTheme.Layout.chipV)
+                            .hOutline()
+                        if hasActiveFilters {
+                            Circle()
+                                .fill(Color.hAccent)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                }
+                .buttonStyle(PressScaleButtonStyle())
+            )
+        )
+    }
+
+    // MARK: - Chart section
+
+    private var chartSection: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(period.rawValue)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(period.rawValue.uppercased())
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                    .foregroundStyle(Color.hSecondary)
+                    .tracking(0.8)
                 Text(totalSpent, format: .currency(code: "INR").presentation(.narrow))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.display, weight: .bold))
+                    .foregroundStyle(Color.hPrimary)
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: totalSpent)
             }
 
             if categoryTotals.isEmpty {
                 Text("No expenses for this period")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                    .foregroundStyle(Color.hSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
             } else {
@@ -149,11 +177,10 @@ struct SpendingsView: View {
                         y: .value("Amount", item.total)
                     )
                     .foregroundStyle(item.color)
-                    .cornerRadius(8)
                     .annotation(position: .top, alignment: .center) {
                         Text(item.total, format: .currency(code: "INR").presentation(.narrow))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.caption))
+                            .foregroundStyle(Color.hSecondary)
                     }
                 }
                 .chartYAxis(.hidden)
@@ -168,38 +195,15 @@ struct SpendingsView: View {
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: categoryTotals.map(\.total))
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(HisaabTheme.Layout.cardPadding)
+        .hOutline()
     }
 
-    // MARK: - Filter row
+    // MARK: - Active filter chips
 
-    private var filterRow: some View {
+    private var filterChipsRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                // Filter pill
-                Button { showFilter = true } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "line.3.horizontal.decrease")
-                            .font(.subheadline)
-                        Text("Filter")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        if hasActiveFilters {
-                            Circle()
-                                .fill(Color.accentColor)
-                                .frame(width: 6, height: 6)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .foregroundStyle(.primary)
-                    .overlay(Capsule().stroke(Color(.separator), lineWidth: 1))
-                }
-                .buttonStyle(PressScaleButtonStyle())
-
-                // Active filter chips (tap to dismiss)
                 if period != .thisMonth {
                     activeChip(period.rawValue) { period = .thisMonth }
                 }
@@ -213,7 +217,6 @@ struct SpendingsView: View {
                     activeChip(sortOrder.rawValue) { sortOrder = .newest }
                 }
             }
-            .padding(.horizontal, 2)
         }
     }
 
@@ -221,16 +224,14 @@ struct SpendingsView: View {
         Button(action: onRemove) {
             HStack(spacing: 4) {
                 Text(label)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Image(systemName: "xmark")
-                    .font(.caption2)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                Text("×")
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .regular))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Color.accentColor.opacity(0.12))
-            .foregroundStyle(Color.accentColor)
-            .clipShape(Capsule())
+            .foregroundStyle(Color.hBackground)
+            .padding(.horizontal, HisaabTheme.Layout.chipH)
+            .padding(.vertical, HisaabTheme.Layout.chipV)
+            .background(Color.hPrimary)
         }
         .buttonStyle(PressScaleButtonStyle())
     }
@@ -241,55 +242,41 @@ struct SpendingsView: View {
     private var expenseList: some View {
         if filtered.isEmpty {
             Text("No expenses found")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hSecondary)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 32)
         } else if sortOrder == .newest || sortOrder == .oldest {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(dayGroups.enumerated()), id: \.element.label) { index, group in
-                    sectionLabel(group.label, topPad: index == 0 ? 16 : 20)
-                    ForEach(group.items) { expense in
-                        VStack(spacing: 0) {
-                            ExpenseRow(expense: expense).padding(.horizontal, 20)
-                            if group.items.last?.id != expense.id {
-                                Divider().padding(.leading, 76)
+            VStack(alignment: .leading, spacing: 24) {
+                ForEach(dayGroups, id: \.label) { group in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(group.label.uppercased())
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                            .foregroundStyle(Color.hSecondary)
+                            .tracking(0.8)
+                        VStack(spacing: HisaabTheme.Layout.itemGap) {
+                            ForEach(group.items) { expense in
+                                ExpenseRow(expense: expense)
                             }
                         }
                     }
                 }
-                Color.clear.frame(height: 16)
             }
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
         } else {
-            VStack(alignment: .leading, spacing: 0) {
-                sectionLabel(sortOrder == .highToLow ? "Highest first" : "Lowest first", topPad: 16)
-                ForEach(filtered) { expense in
-                    VStack(spacing: 0) {
-                        ExpenseRow(expense: expense).padding(.horizontal, 20)
-                        if filtered.last?.id != expense.id {
-                            Divider().padding(.leading, 76)
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text((sortOrder == .highToLow ? "Highest first" : "Lowest first").uppercased())
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                        .foregroundStyle(Color.hSecondary)
+                        .tracking(0.8)
+                    VStack(spacing: HisaabTheme.Layout.itemGap) {
+                        ForEach(filtered) { expense in
+                            ExpenseRow(expense: expense)
                         }
                     }
                 }
-                Color.clear.frame(height: 16)
             }
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
         }
-    }
-
-    private func sectionLabel(_ text: String, topPad: CGFloat) -> some View {
-        Text(text)
-            .font(.caption)
-            .fontWeight(.semibold)
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, topPad)
-            .padding(.bottom, 8)
     }
 
     private func dayLabel(for date: Date, calendar: Calendar) -> String {
@@ -311,131 +298,109 @@ private struct SpendingsFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    filterSection("Sort by") {
-                        pillRow(SpendingsView.SortOrder.allCases, selected: sortOrder, label: \.rawValue) {
-                            sortOrder = $0
-                        }
-                    }
-
-                    filterSection("Period") {
-                        pillRow(SpendingsView.Period.allCases, selected: period, label: \.rawValue) {
-                            period = $0
-                        }
-                    }
-
-                    filterSection("Category") { categoryPills }
-
-                    filterSection("Source") { sourcePills }
-                }
-                .padding(20)
-                .padding(.bottom, 16)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Filter & Sort")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+        VStack(spacing: 0) {
+            HisaabHeader(
+                title: "Filter & Sort",
+                leftAction: AnyView(
                     Button("Reset") {
                         sortOrder = .newest
                         selectedCategory = nil
                         period = .thisMonth
                         selectedSource = nil
                     }
-                    .foregroundStyle(.secondary)
-                }
-                ToolbarItem(placement: .confirmationAction) {
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                    .foregroundStyle(Color.hSecondary)
+                ),
+                rightAction: AnyView(
                     Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .semibold))
+                        .foregroundStyle(Color.hPrimary)
+                )
+            )
+            .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: HisaabTheme.Layout.sectionGap) {
+                    filterSection("Sort by") {
+                        chipRow(SpendingsView.SortOrder.allCases, selected: sortOrder, label: \.rawValue) {
+                            sortOrder = $0
+                        }
+                    }
+                    filterSection("Period") {
+                        chipRow(SpendingsView.Period.allCases, selected: period, label: \.rawValue) {
+                            period = $0
+                        }
+                    }
+                    filterSection("Category") { categoryChips }
+                    filterSection("Source") { sourceChips }
                 }
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                .padding(.bottom, 32)
             }
         }
+        .background(Color.hBackground)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(Color.hBackground)
     }
 
     private func filterSection<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text(title.uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
             content()
         }
     }
 
-    private func pillRow<T: Hashable>(_ options: [T], selected: T, label: KeyPath<T, String>, onSelect: @escaping (T) -> Void) -> some View {
+    private func chipRow<T: Hashable>(
+        _ options: [T],
+        selected: T,
+        label: KeyPath<T, String>,
+        onSelect: @escaping (T) -> Void
+    ) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(options, id: \.self) { option in
-                    let isSelected = option == selected
-                    Button { onSelect(option) } label: {
-                        Text(option[keyPath: label])
-                            .font(.subheadline)
-                            .fontWeight(isSelected ? .semibold : .regular)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
-                            .foregroundStyle(isSelected ? .white : .primary)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(isSelected ? Color.accentColor : Color(.separator), lineWidth: 1))
+                    HisaabChip(label: option[keyPath: label], isSelected: option == selected) {
+                        onSelect(option)
                     }
-                    .buttonStyle(PressScaleButtonStyle())
-                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
                 }
             }
-            .padding(.horizontal, 2)
         }
     }
 
-    private var categoryPills: some View {
+    private var categoryChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                pillButton(label: "All", isSelected: selectedCategory == nil) {
+                HisaabChip(label: "All", isSelected: selectedCategory == nil) {
                     selectedCategory = nil
                 }
                 ForEach(categories) { cat in
-                    let isSelected = selectedCategory == cat.name
-                    pillButton(label: "\(cat.emoji) \(cat.name)", isSelected: isSelected) {
-                        selectedCategory = isSelected ? nil : cat.name
+                    HisaabChip(
+                        label: "\(cat.emoji) \(cat.name)",
+                        isSelected: selectedCategory == cat.name
+                    ) {
+                        selectedCategory = selectedCategory == cat.name ? nil : cat.name
                     }
                 }
             }
-            .padding(.horizontal, 2)
         }
     }
 
-    private var sourcePills: some View {
+    private var sourceChips: some View {
         let options: [(label: String, value: ExpenseSource?)] = [
             ("All", nil), ("Manual", .manual), ("Voice", .voice), ("Auto-import", .gmail)
         ]
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(options, id: \.label) { option in
-                    let isSelected = selectedSource == option.value
-                    pillButton(label: option.label, isSelected: isSelected) {
-                        selectedSource = isSelected ? nil : option.value
+                    HisaabChip(label: option.label, isSelected: selectedSource == option.value) {
+                        selectedSource = selectedSource == option.value ? nil : option.value
                     }
                 }
             }
-            .padding(.horizontal, 2)
         }
-    }
-
-    private func pillButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
-                .foregroundStyle(isSelected ? .white : .primary)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(isSelected ? Color.accentColor : Color(.separator), lineWidth: 1))
-        }
-        .buttonStyle(PressScaleButtonStyle())
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
     }
 }

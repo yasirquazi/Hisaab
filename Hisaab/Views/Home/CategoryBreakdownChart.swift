@@ -28,23 +28,22 @@ struct CategoryBreakdownChart: View {
         guard totals.count > maxLegendItems else { return totals }
         let visible = Array(totals.prefix(maxLegendItems - 1))
         let otherTotal = totals.dropFirst(maxLegendItems - 1).reduce(0) { $0 + $1.total }
-        let other = CategoryTotal(name: "Other", emoji: "💸", total: otherTotal, color: Color(.systemGray3))
+        let other = CategoryTotal(name: "Other", emoji: "💸", total: otherTotal, color: Color.hSecondary)
         return visible + [other]
     }
 
-    private var grandTotal: Double {
-        totals.reduce(0) { $0 + $1.total }
-    }
+    private var grandTotal: Double { totals.reduce(0) { $0 + $1.total } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
             Text("This Month")
-                .font(.headline)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .medium))
+                .foregroundStyle(Color.hPrimary)
 
             if totals.isEmpty {
                 Text("No expenses yet")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                    .foregroundStyle(Color.hSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
             } else {
@@ -52,12 +51,10 @@ struct CategoryBreakdownChart: View {
                 legendRow
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(HisaabTheme.Layout.cardPadding)
+        .hOutline()
     }
 
-    // Single bar where each category gets a proportional colored segment
     private var segmentedBar: some View {
         GeometryReader { geo in
             HStack(spacing: 2) {
@@ -69,20 +66,18 @@ struct CategoryBreakdownChart: View {
             }
         }
         .frame(height: 14)
-        .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 
-    // One-line legend: up to 4 categories, overflow collapses to "Other"
     private var legendRow: some View {
         HStack(spacing: 14) {
             ForEach(legendItems) { item in
                 HStack(spacing: 5) {
-                    Circle()
+                    Rectangle()
                         .fill(item.color)
                         .frame(width: 8, height: 8)
                     Text("\(item.emoji) \(item.name)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.caption))
+                        .foregroundStyle(Color.hSecondary)
                         .lineLimit(1)
                         .fixedSize()
                 }
@@ -91,7 +86,6 @@ struct CategoryBreakdownChart: View {
         }
     }
 
-    // Stable color mapping used consistently in both the home widget and the Spendings tab
     static func color(for name: String) -> Color {
         switch name {
         case "Food":            return .orange

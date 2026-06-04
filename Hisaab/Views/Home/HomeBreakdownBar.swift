@@ -43,7 +43,6 @@ struct HomeBreakdownBar: View {
                 }
             }
             .frame(height: 12)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             HStack(spacing: 16) {
                 ForEach(legendItems) { item in

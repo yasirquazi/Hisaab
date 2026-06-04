@@ -12,67 +12,70 @@ struct ReviewQueueView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Group {
+        ZStack(alignment: .top) {
+            Color.hBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HisaabHeader(
+                    title: "Review Queue",
+                    leftAction: pending.isEmpty ? nil : AnyView(
+                        Button("Approve All") { approveAll() }
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hPrimary)
+                    ),
+                    rightAction: AnyView(
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.hPrimary)
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                    )
+                )
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
                 if pending.isEmpty {
                     emptyState
                 } else {
-                    list
-                }
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Review Queue")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                }
-                if !pending.isEmpty {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Approve All") { approveAll() }
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("\(pending.count) transaction\(pending.count == 1 ? "" : "s") imported from Gmail")
+                                .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                                .foregroundStyle(Color.hSecondary)
+                                .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+                                .hBottomBorder()
+
+                            ForEach(pending) { expense in
+                                ReviewRow(expense: expense, categories: categories)
+                            }
+                        }
+                        .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                        .padding(.bottom, 32)
                     }
                 }
             }
         }
-    }
-
-    private var list: some View {
-        List {
-            Section {
-                Text("\(pending.count) transaction\(pending.count == 1 ? "" : "s") imported from Gmail — review and confirm.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(pending) { expense in
-                ReviewRow(expense: expense, categories: categories)
-            }
-            .onDelete(perform: deleteItems)
-        }
+        .background(ModalSafeAreaFixer())
     }
 
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 40))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.green)
             Text("All caught up!")
-                .font(.headline)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .medium))
+                .foregroundStyle(Color.hPrimary)
             Text("No pending Gmail transactions to review.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func approveAll() {
         for expense in pending { expense.isReviewed = true }
-        try? modelContext.save()
-    }
-
-    private func deleteItems(at offsets: IndexSet) {
-        for i in offsets { modelContext.delete(pending[i]) }
         try? modelContext.save()
     }
 }
@@ -84,56 +87,48 @@ private struct ReviewRow: View {
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(expense.amount, format: .currency(code: "INR").presentation(.narrow))
-                        .font(.headline)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .bold))
+                        .foregroundStyle(Color.hPrimary)
                     if let merchant = expense.merchant {
                         Text(merchant)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hSecondary)
                     }
                     Text(expense.date.formatted(.dateTime.day().month().year()))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.small))
+                        .foregroundStyle(Color.hSecondary)
                 }
                 Spacer()
                 categoryBadge
             }
 
-            HStack(spacing: 10) {
-                Button("Edit") { showEdit = true }
-                    .font(.caption).fontWeight(.medium)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Color(.secondarySystemFill))
-                    .clipShape(Capsule())
-
-                Button("Approve") {
+            HStack(spacing: 8) {
+                actionButton("Edit", style: .outline) { showEdit = true }
+                actionButton("Approve", style: .filled) {
                     saveRule(merchant: expense.merchant, category: expense.category)
                     expense.isReviewed = true
                     try? modelContext.save()
                 }
-                .font(.caption).fontWeight(.semibold)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(Capsule())
-
                 Button(role: .destructive) {
                     modelContext.delete(expense)
                     try? modelContext.save()
                 } label: {
                     Image(systemName: "trash")
-                        .font(.caption)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, HisaabTheme.Layout.chipH)
+                        .padding(.vertical, HisaabTheme.Layout.chipV)
+                        .overlay(Rectangle().stroke(Color.red.opacity(0.4), lineWidth: HisaabTheme.Layout.borderWidth))
                 }
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Color.red.opacity(0.1))
-                .foregroundStyle(.red)
-                .clipShape(Capsule())
+                .buttonStyle(PressScaleButtonStyle())
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
         .sheet(isPresented: $showEdit) {
             EditImportedExpenseView(expense: expense, categories: categories)
         }
@@ -142,10 +137,26 @@ private struct ReviewRow: View {
     private var categoryBadge: some View {
         let emoji = categories.first { $0.name == expense.category }?.emoji ?? "💸"
         return Text("\(emoji) \(expense.category)")
-            .font(.caption).fontWeight(.medium)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Color(.tertiarySystemFill))
-            .clipShape(Capsule())
+            .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+            .foregroundStyle(Color.hPrimary)
+            .padding(.horizontal, HisaabTheme.Layout.chipH)
+            .padding(.vertical, HisaabTheme.Layout.chipV)
+            .hOutline()
+    }
+
+    private enum ButtonStyle { case outline, filled }
+
+    private func actionButton(_ label: String, style: ButtonStyle, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: style == .filled ? .semibold : .regular))
+                .foregroundStyle(style == .filled ? Color.hBackground : Color.hPrimary)
+                .padding(.horizontal, HisaabTheme.Layout.chipH)
+                .padding(.vertical, HisaabTheme.Layout.chipV)
+                .background(style == .filled ? Color.hPrimary : Color.clear)
+                .hOutline()
+        }
+        .buttonStyle(PressScaleButtonStyle())
     }
 
     private func saveRule(merchant: String?, category: String) {
@@ -173,47 +184,104 @@ private struct EditImportedExpenseView: View {
     @State private var amountText: String = ""
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Amount") {
-                    TextField("Amount", text: $amountText)
-                        .keyboardType(.decimalPad)
+        ZStack(alignment: .top) {
+            Color.hBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HisaabHeader(
+                    title: "Edit Transaction",
+                    leftAction: AnyView(
+                        Button("Cancel") { dismiss() }
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hSecondary)
+                    ),
+                    rightAction: AnyView(
+                        Button("Save") {
+                            if let value = Double(amountText), value > 0 { expense.amount = value }
+                            saveRule(merchant: expense.merchant, category: expense.category)
+                            expense.isReviewed = true
+                            try? modelContext.save()
+                            dismiss()
+                        }
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .semibold))
+                        .foregroundStyle(Color.hPrimary)
+                    )
+                )
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        amountRow
+                        categoryRow
+                        noteRow
+                    }
+                    .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                    .padding(.bottom, 32)
                 }
-                Section("Category") {
-                    Picker("Category", selection: $expense.category) {
-                        ForEach(categories) { cat in
-                            Text("\(cat.emoji) \(cat.name)").tag(cat.name)
+            }
+        }
+        .background(ModalSafeAreaFixer())
+        .onAppear { amountText = String(expense.amount) }
+    }
+
+    private var amountRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Amount".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("₹")
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.display, weight: .semibold))
+                    .foregroundStyle(Color.hSecondary)
+                TextField("0", text: $amountText)
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.hero, weight: .bold))
+                    .foregroundStyle(Color.hPrimary)
+                    .keyboardType(.decimalPad)
+                    .minimumScaleFactor(0.5)
+            }
+        }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
+    }
+
+    private var categoryRow: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Category".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(categories) { cat in
+                        HisaabChip(
+                            label: "\(cat.emoji) \(cat.name)",
+                            isSelected: expense.category == cat.name
+                        ) {
+                            expense.category = cat.name
                         }
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                }
-                Section("Note") {
-                    TextField("Note (optional)", text: Binding(
-                        get: { expense.note ?? "" },
-                        set: { expense.note = $0.isEmpty ? nil : $0 }
-                    ))
                 }
             }
-            .navigationTitle("Edit Transaction")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let value = Double(amountText), value > 0 { expense.amount = value }
-                        saveRule(merchant: expense.merchant, category: expense.category)
-                        expense.isReviewed = true
-                        try? modelContext.save()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
-            .onAppear { amountText = String(expense.amount) }
         }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
+    }
+
+    private var noteRow: some View {
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Note".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
+            TextField("Note (optional)", text: Binding(
+                get: { expense.note ?? "" },
+                set: { expense.note = $0.isEmpty ? nil : $0 }
+            ))
+            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+            .foregroundStyle(Color.hPrimary)
+        }
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     private func saveRule(merchant: String?, category: String) {

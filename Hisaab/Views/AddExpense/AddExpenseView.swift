@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct AddExpenseView: View {
+    var editingExpense: Expense? = nil
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
@@ -12,6 +14,8 @@ struct AddExpenseView: View {
     @State private var date = Date.now
     @State private var showDatePicker = false
 
+    private var isEditing: Bool { editingExpense != nil }
+
     private var amount: Double? {
         Double(amountText.replacingOccurrences(of: ",", with: ""))
     }
@@ -21,32 +25,50 @@ struct AddExpenseView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    amountField
-                    categoryPicker
-                    noteField
-                    dateRow
-                }
-                .padding(20)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("New Expense")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
+        ZStack(alignment: .top) {
+            Color.hBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HisaabHeader(
+                    title: isEditing ? "Edit Expense" : "Add Expense",
+                    leftAction: AnyView(
+                        Button("Cancel") { dismiss() }
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                            .foregroundStyle(Color.hSecondary)
+                    ),
+                    rightAction: AnyView(
+                        Button("Save") { save() }
+                            .font(HisaabTheme.mono(HisaabTheme.FontSize.body, weight: .semibold))
+                            .foregroundStyle(canSave ? Color.hPrimary : Color.hBorder)
+                            .disabled(!canSave)
+                    )
+                )
+                .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: HisaabTheme.Layout.sectionGap) {
+                        amountField
+                        categoryPicker
+                        noteField
+                        dateRow
+                        HisaabPrimaryButton(
+                            label: isEditing ? "Save Changes" : "Save Expense",
+                            disabled: !canSave
+                        ) { save() }
+                        if isEditing { deleteButton }
+                    }
+                    .padding(.horizontal, HisaabTheme.Layout.pagePadding)
+                    .padding(.bottom, 32)
                 }
             }
         }
+        .background(ModalSafeAreaFixer())
         .onAppear {
-            if selectedCategory.isEmpty, let first = categories.first {
+            if let expense = editingExpense {
+                amountText = String(expense.amount)
+                selectedCategory = expense.category
+                note = expense.note ?? ""
+                date = expense.date
+            } else if selectedCategory.isEmpty, let first = categories.first {
                 selectedCategory = first.name
             }
         }
@@ -55,87 +77,70 @@ struct AddExpenseView: View {
     // MARK: - Amount
 
     private var amountField: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Amount".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
+
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("₹")
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.display, weight: .semibold))
+                    .foregroundStyle(Color.hSecondary)
                 TextField("0", text: $amountText)
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(HisaabTheme.mono(HisaabTheme.FontSize.hero, weight: .bold))
+                    .foregroundStyle(Color.hPrimary)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.leading)
                     .minimumScaleFactor(0.5)
             }
-            .padding(.horizontal, 4)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.top, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     // MARK: - Category
 
     private var categoryPicker: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Category")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Category".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ForEach(categories) { cat in
-                        categoryChip(cat)
+                        HisaabChip(
+                            label: "\(cat.emoji) \(cat.name)",
+                            isSelected: selectedCategory == cat.name
+                        ) {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                selectedCategory = cat.name
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 2)
             }
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func categoryChip(_ cat: ExpenseCategory) -> some View {
-        let isSelected = selectedCategory == cat.name
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                selectedCategory = cat.name
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Text(cat.emoji)
-                Text(cat.name)
-                    .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.accentColor : Color(.tertiarySystemBackground))
-            .foregroundStyle(isSelected ? .white : .primary)
-            .clipShape(Capsule())
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
-        }
-        .buttonStyle(PressScaleButtonStyle())
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     // MARK: - Note
 
     private var noteField: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Note")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-
+        VStack(alignment: .leading, spacing: HisaabTheme.Layout.itemGap) {
+            Text("Note".uppercased())
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                .foregroundStyle(Color.hSecondary)
+                .tracking(0.8)
             TextField("Optional note", text: $note)
-                .font(.body)
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                .foregroundStyle(Color.hPrimary)
         }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
+        .hBottomBorder()
     }
 
     // MARK: - Date
@@ -148,46 +153,72 @@ struct AddExpenseView: View {
                 }
             } label: {
                 HStack {
-                    Label("Date", systemImage: "calendar")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                    Text("Date".uppercased())
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.small, weight: .medium))
+                        .foregroundStyle(Color.hSecondary)
+                        .tracking(0.8)
                     Spacer()
                     Text(date.formatted(.dateTime.day().month().year().hour().minute()))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(HisaabTheme.mono(HisaabTheme.FontSize.body))
+                        .foregroundStyle(Color.hPrimary)
+                    Image("ri-arrow-right-s-line")
+                        .renderingMode(.template)
+                        .foregroundStyle(Color.hSecondary)
+                        .frame(width: 16, height: 16)
                         .rotationEffect(.degrees(showDatePicker ? 90 : 0))
                         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: showDatePicker)
                 }
-                .padding(20)
+                .padding(.vertical, HisaabTheme.Layout.rowPaddingV)
             }
-            .foregroundStyle(.primary)
+            .buttonStyle(PressScaleButtonStyle())
 
             if showDatePicker {
                 DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
                     .datePickerStyle(.graphical)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .tint(Color.hPrimary)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .hBottomBorder()
+    }
+
+    // MARK: - Delete
+
+    private var deleteButton: some View {
+        Button(role: .destructive) {
+            guard let expense = editingExpense else { return }
+            modelContext.delete(expense)
+            try? modelContext.save()
+            dismiss()
+        } label: {
+            Text("Delete Expense")
+                .font(HisaabTheme.mono(HisaabTheme.FontSize.headline, weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, HisaabTheme.Layout.buttonV)
+                .overlay(Rectangle().stroke(Color.red.opacity(0.4), lineWidth: HisaabTheme.Layout.borderWidth))
+        }
+        .buttonStyle(PressScaleButtonStyle())
     }
 
     // MARK: - Save
 
     private func save() {
         guard let amount else { return }
-        let expense = Expense(
-            amount: amount,
-            category: selectedCategory,
-            note: note.isEmpty ? nil : note,
-            date: date
-        )
-        modelContext.insert(expense)
+        if let expense = editingExpense {
+            expense.amount = amount
+            expense.category = selectedCategory
+            expense.note = note.isEmpty ? nil : note
+            expense.date = date
+            try? modelContext.save()
+        } else {
+            modelContext.insert(Expense(
+                amount: amount,
+                category: selectedCategory,
+                note: note.isEmpty ? nil : note,
+                date: date
+            ))
+        }
         dismiss()
     }
 }
